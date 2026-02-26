@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.huq.idea"
-version = "1.3.0-fixutf8"
+version = "1.4.0"
 
 
 repositories {

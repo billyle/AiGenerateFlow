@@ -167,7 +167,8 @@ public class MethodChainVisitor extends JavaRecursiveElementVisitor {
                 docComment = superMethod.getDocComment();
             }
         }
-        return new MethodDescription(psiMethod, psiMethod.getContainingClass().getQualifiedName(), psiMethod.getText(), psiMethod.getName(), docComment, psiMethod.getReturnType().getPresentableText());
+        PsiClass containingClass = psiMethod.getContainingClass();
+        return new MethodDescription(psiMethod, containingClass, containingClass.getQualifiedName(), psiMethod.getText(), psiMethod.getName(), docComment, psiMethod.getReturnType().getPresentableText());
     }
 
 

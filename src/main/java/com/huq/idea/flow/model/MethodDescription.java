@@ -1,6 +1,7 @@
 package com.huq.idea.flow.model;
 
 import com.google.common.base.Objects;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.javadoc.PsiDocComment;
 
@@ -14,6 +15,8 @@ import java.util.Map;
 public class MethodDescription {
 
     private PsiMethod psiMethod;
+
+    private PsiClass psiClass;
 
     private String className;
 
@@ -29,6 +32,17 @@ public class MethodDescription {
 
     public MethodDescription(PsiMethod psiMethod, String className, String text, String name, PsiDocComment docComment, String returnType) {
         this.psiMethod = psiMethod;
+        this.psiClass = psiMethod != null ? psiMethod.getContainingClass() : null;
+        this.className = className;
+        this.text = text;
+        this.name = name;
+        this.docComment = docComment;
+        this.returnType = returnType;
+    }
+
+    public MethodDescription(PsiMethod psiMethod, PsiClass psiClass, String className, String text, String name, PsiDocComment docComment, String returnType) {
+        this.psiMethod = psiMethod;
+        this.psiClass = psiClass;
         this.className = className;
         this.text = text;
         this.name = name;
@@ -42,6 +56,10 @@ public class MethodDescription {
 
     public PsiMethod getPsiMethod() {
         return this.psiMethod;
+    }
+
+    public PsiClass getPsiClass() {
+        return this.psiClass;
     }
 
     public Map<String, String> getAttr() {

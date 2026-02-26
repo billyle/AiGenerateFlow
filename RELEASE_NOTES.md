@@ -1,49 +1,46 @@
-# Release Notes - UI Enhancement Update
+# Release Notes - v1.4.0 - Enhanced Prompt Management & Core Improvements
 
-## 🎉 Major UI/UX Improvements
+## 🎉 Major Feature Updates
 
-This release focuses on significantly enhancing the user interface and user experience of the AI UML Flow Diagram Generator plugin.
+This release introduces significant enhancements to the prompt management system and core functionality of the AI UML Flow Diagram Generator plugin.
 
 ## ✨ Key Features
 
-### 🖼️ Enhanced Tool Window
-- **New Welcome Page**: Comprehensive introduction with feature highlights, usage guide, and configuration instructions
-- **Visual Identity**: Added plugin icon to tool window for better recognition
-- **Interactive Elements**: Direct access buttons to configuration and help documentation
-- **Modern Design**: Clean, organized layout with emoji icons and clear section divisions
+### 🔄 Enhanced Prompt Management
+- **Fixed Apply Button Logic**: The "应用修改" button now properly saves prompt modifications to configuration
+- **Persistent Storage**: Modified prompts are now correctly persisted across IDE sessions
+- **Improved User Experience**: Clear feedback when prompt changes are saved successfully
 
-### ⚙️ Redesigned Configuration Interface
-- **Modular Design**: Separated configuration into logical panels (General, AI Models, Prompts, Patterns)
-- **Consistent Styling**: Unified design language across all configuration sections
-- **Better Organization**: Improved layout with proper spacing and visual hierarchy
-- **User-Friendly**: Enhanced tooltips and descriptions for better guidance
+### 🔧 Core Code Improvements
+- **Enhanced Method Chain Analysis**: Improved visitor patterns for better code traversal
+- **Optimized Performance**: Refined method description handling and call stack management
+- **Better Error Handling**: Enhanced robustness in code analysis components
 
-### 🔧 Technical Improvements
-- **Code Quality**: Refactored UI components for better maintainability
-- **Performance**: Optimized component creation and lifecycle management
-- **Compatibility**: Removed deprecated methods and improved API consistency
-- **Architecture**: Better separation of concerns in UI component design
+### 📝 Documentation & Planning
+- **Added Comprehensive TODO Lists**: Detailed planning documents for future Git integration
+- **Feature Documentation**: Clear documentation of new capabilities and workflows
+- **Development Roadmap**: Structured approach for upcoming enhancements
 
 ## 🚀 What's New
 
 ### For End Users
-1. **Intuitive Interface**: More organized and visually appealing configuration screens
-2. **Better Guidance**: Step-by-step instructions and feature explanations
-3. **Quick Access**: Direct buttons to open configuration from tool window
-4. **Visual Feedback**: Clear icons and consistent design elements
+1. **Reliable Prompt Saving**: Prompt modifications now persist correctly
+2. **Better Feedback**: Clear notifications when changes are saved
+3. **Stable Performance**: Improved reliability in code analysis
+4. **Future-Ready**: Foundation laid for advanced Git-based prompt management
 
 ### For Developers
-1. **Cleaner Code**: Programmatic UI creation instead of form files
-2. **Better Structure**: Modular component organization
-3. **Maintainability**: Improved code organization and documentation
-4. **Extensibility**: Easier to add new configuration options
+1. **Cleaner Architecture**: Improved code organization and separation of concerns
+2. **Better Maintainability**: Enhanced code quality and documentation
+3. **Extensible Design**: Modular structure for future enhancements
+4. **Robust Implementation**: Better error handling and edge case management
 
 ## 🎯 User Benefits
 
-- **Faster Setup**: More intuitive configuration process
-- **Better Discovery**: Clear feature explanations and usage instructions
-- **Professional Look**: Modern, consistent UI design
-- **Improved Workflow**: Streamlined access to all plugin features
+- **Trustworthy Configuration**: Prompt changes are reliably saved and loaded
+- **Smooth Workflow**: No more lost prompt modifications
+- **Better Performance**: Faster and more accurate code analysis
+- **Future Capabilities**: Preparation for advanced version control features
 
 ## 🔄 Migration Notes
 
@@ -54,11 +51,19 @@ This release focuses on significantly enhancing the user interface and user expe
 
 ## 🐛 Bug Fixes
 
-- Fixed layout issues in configuration panels
-- Resolved deprecated API usage warnings
-- Improved component initialization reliability
-- Enhanced error handling in UI components
+- Fixed prompt saving functionality in FlowDiagramAction
+- Resolved method chain visitor inconsistencies
+- Improved error handling in core components
+- Enhanced configuration persistence reliability
+
+## 🔮 Coming Soon
+
+Based on our development roadmap, upcoming features include:
+- Git-based prompt version management
+- AI-powered commit message generation
+- Remote repository synchronization
+- Advanced prompt history and rollback capabilities
 
 ---
 
-**Note**: This update maintains full backward compatibility while providing a significantly improved user experience. All existing features and configurations continue to work as expected.
+**Note**: This update maintains full backward compatibility while delivering critical improvements to prompt management and core functionality. All existing features and configurations continue to work as expected, with enhanced reliability and performance.

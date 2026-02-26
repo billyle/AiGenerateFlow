@@ -197,7 +197,8 @@ public class EnhancedMethodChainVisitor extends JavaRecursiveElementVisitor {
         
         String returnType = method.getReturnType() != null ? method.getReturnType().getPresentableText() : "void";
         
-        return new MethodDescription(method, className, methodText, methodName, docComment, returnType);
+        // 使用新的构造函数，传递 PsiClass 信息
+        return new MethodDescription(method, containingClass, className, methodText, methodName, docComment, returnType);
     }
 
     /**

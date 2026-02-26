@@ -22,9 +22,13 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiAnnotation;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiModifierList;
+import com.intellij.psi.PsiTypeParameterList;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -146,18 +150,35 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
     private JPanel createInitialPlantUmlTab(Project project, JFrame parentFrame, String collectedCode) {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // 创建一个分割面板，左侧显示代码，右侧显示图形
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        splitPane.setDividerLocation(500);
-        splitPane.setResizeWeight(0.5);
+        // 保存对相关组件的引用，供后续使用
+        final JTextArea[] promptTextAreaRef = new JTextArea[1];
+        final JSplitPane[] leftSplitPaneRef = new JSplitPane[1];
+        final JSplitPane[] mainSplitPaneRef = new JSplitPane[1];
 
-        // 左侧代码面板
+        // 创建主分割面板（水平分割）
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        mainSplitPane.setDividerLocation(800); // 默认宽度分配
+        mainSplitPane.setResizeWeight(0.7); // 左侧占70%
+        mainSplitPaneRef[0] = mainSplitPane;
+
+        // 创建左侧的垂直分割面板（用于提示词和代码）
+        JSplitPane leftSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        leftSplitPane.setDividerLocation(200); // 提示词面板默认高度
+        leftSplitPane.setResizeWeight(0.3); // 提示词占30%
+        leftSplitPaneRef[0] = leftSplitPane;
+
+        // 提示词调试面板（默认折叠）
+        JPanel promptPanel = createCollapsiblePromptPanel(project, collectedCode, promptTextAreaRef);
+        leftSplitPane.setTopComponent(promptPanel);
+
+        // 代码面板
         JPanel codePanel = new JPanel(new BorderLayout());
         JTextArea textArea = new JTextArea();
         textArea.setEditable(true);
         textArea.setText(collectedCode);
         textArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
         codePanel.add(new JScrollPane(textArea), BorderLayout.CENTER);
+        leftSplitPane.setBottomComponent(codePanel);
 
         // 右侧图形面板（初始为空白）
         JPanel diagramPanel = new JPanel(new BorderLayout());
@@ -165,9 +186,9 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
         waitingLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
         diagramPanel.add(waitingLabel, BorderLayout.CENTER);
 
-        // 添加到分割面板
-        splitPane.setLeftComponent(codePanel);
-        splitPane.setRightComponent(diagramPanel);
+        // 组装主面板
+        mainSplitPane.setLeftComponent(leftSplitPane);
+        mainSplitPane.setRightComponent(diagramPanel);
 
         // 底部按钮面板
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -194,6 +215,20 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
         });
         buttonPanel.add(modelLabel);
         buttonPanel.add(modelComboBox);
+
+        // 温度参数输入框
+        JLabel temperatureLabel = new JLabel("温度:");
+        JTextField temperatureField = new JTextField("0.7", 5);
+        temperatureField.setToolTipText("控制AI输出的随机性，值越高越随机(0.0-1.0)");
+        buttonPanel.add(temperatureLabel);
+        buttonPanel.add(temperatureField);
+
+        // 最大令牌数输入框
+        JLabel maxTokensLabel = new JLabel("最大令牌数:");
+        JTextField maxTokensField = new JTextField("8000", 8);
+        maxTokensField.setToolTipText("控制AI生成的最大token数量");
+        buttonPanel.add(maxTokensLabel);
+        buttonPanel.add(maxTokensField);
 
         // 生成流程按钮
         JButton generateButton = new JButton("生成流程");
@@ -241,7 +276,18 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
 
                     // 生成PlantUML流程图
                     String flowPromptTemplate = getFlowDiagramPrompt();
-                    String flowPrompt = String.format(flowPromptTemplate, collectedCode);
+                    
+                    // 如果提示词面板已展开且有修改，则使用修改后的提示词
+                    String currentPromptTemplate = flowPromptTemplate;
+                    if (promptTextAreaRef[0] != null) {
+                        String modifiedPrompt = promptTextAreaRef[0].getText().trim();
+                        if (!modifiedPrompt.isEmpty() && !modifiedPrompt.equals(flowPromptTemplate)) {
+                            currentPromptTemplate = modifiedPrompt;
+                            LOG.info("Using modified prompt template for debugging");
+                        }
+                    }
+                    
+                    String flowPrompt = String.format(currentPromptTemplate, collectedCode);
                     
                     // 使用选择的AI模型调用（自动获取API密钥）
                     AiUtils.AiConfig config = AiUtils.createConfigWithApiKey(selectedProvider);
@@ -258,9 +304,28 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
                         return;
                     }
                     
+                    // 从输入框获取AI参数
+                    double temperature = 0.7;
+                    int maxTokens = 8000;
+                    try {
+                        temperature = Double.parseDouble(temperatureField.getText().trim());
+                        // 限制温度范围在0.0-1.0之间
+                        temperature = Math.max(0.0, Math.min(1.0, temperature));
+                    } catch (NumberFormatException e) {
+                        LOG.warn("Invalid temperature value, using default 0.7");
+                    }
+                    
+                    try {
+                        maxTokens = Integer.parseInt(maxTokensField.getText().trim());
+                        // 限制最大令牌数在合理范围内
+                        maxTokens = Math.max(100, Math.min(32768, maxTokens));
+                    } catch (NumberFormatException e) {
+                        LOG.warn("Invalid maxTokens value, using default 8000");
+                    }
+                    
                     config.setSystemMessage("你是一个专业的PlantUML流程图生成专家，擅长分析Java代码并生成高质量的流程图。")
-                          .setTemperature(0.7)
-                          .setMaxTokens(8000);
+                          .setTemperature(temperature)
+                          .setMaxTokens(maxTokens);
                     
                     AiUtils.AiResponse response = AiUtils.callAi(flowPrompt, config);
                     String flowDiagram = response.isSuccess() ? response.getContent() : null;
@@ -278,7 +343,7 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
 
                             // 更新图形面板
                             JPanel newDiagramPanel = PlantUmlRenderer.createPlantUmlPanel(finalFlowDiagram);
-                            splitPane.setRightComponent(newDiagramPanel);
+                            mainSplitPaneRef[0].setRightComponent(newDiagramPanel);
 
 
                             // 重新启用按钮
@@ -422,9 +487,9 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
             JPanel newDiagramPanel = PlantUmlRenderer.createPlantUmlPanel(updatedUmlContent);
 
             // 替换旧的图形面板
-            splitPane.setRightComponent(newDiagramPanel);
-            splitPane.revalidate();
-            splitPane.repaint();
+            mainSplitPaneRef[0].setRightComponent(newDiagramPanel);
+            mainSplitPaneRef[0].revalidate();
+            mainSplitPaneRef[0].repaint();
 
             // 刷新UI
             panel.revalidate();
@@ -432,10 +497,104 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
         });
         buttonPanel.add(refreshButton);
 
-        panel.add(splitPane, BorderLayout.CENTER);
+        panel.add(mainSplitPane, BorderLayout.CENTER);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
+    }
+
+    /**
+     * 创建可折叠的提示词调试面板
+     */
+    private JPanel createCollapsiblePromptPanel(Project project, String collectedCode, JTextArea[] promptTextAreaRef) {
+        JPanel containerPanel = new JPanel(new BorderLayout());
+        
+        // 标题栏面板
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        titlePanel.setBorder(BorderFactory.createEtchedBorder());
+        
+        // 展开/折叠按钮
+        JButton toggleButton = new JButton("▶"); // 默认折叠状态
+        toggleButton.setPreferredSize(new Dimension(25, 25));
+        toggleButton.setToolTipText("展开/折叠提示词编辑面板");
+        
+        JLabel titleLabel = new JLabel("提示词调试 (点击按钮展开)");
+        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+        
+        titlePanel.add(toggleButton);
+        titlePanel.add(titleLabel);
+        
+        // 内容面板（默认隐藏）
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        contentPanel.setVisible(false); // 默认折叠
+        
+        // 提示词文本区域
+        JTextArea promptTextArea = new JTextArea();
+        promptTextArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        promptTextArea.setRows(8);
+        promptTextArea.setText(getFlowDiagramPrompt());
+        promptTextArea.setToolTipText("修改提示词模板用于调试，修改后点击生成流程按钮生效");
+        
+        // 保存textarea引用供外部使用
+        promptTextAreaRef[0] = promptTextArea;
+        
+        JScrollPane promptScrollPane = new JScrollPane(promptTextArea);
+        contentPanel.add(promptScrollPane, BorderLayout.CENTER);
+        
+        // 底部操作按钮
+        JPanel promptButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        
+        // 重置按钮
+        JButton resetButton = new JButton("重置为默认");
+        resetButton.addActionListener(e -> {
+            promptTextArea.setText(getFlowDiagramPrompt());
+            Notifications.Bus.notify(new Notification(
+                    "com.yt.huq.idea",
+                    "提示词重置",
+                    "提示词已重置为默认值",
+                    NotificationType.INFORMATION),
+                    project);
+        });
+        promptButtonPanel.add(resetButton);
+        
+        // 应用按钮
+        JButton applyButton = new JButton("应用修改");
+        applyButton.addActionListener(e -> {
+            // 获取修改后的提示词内容
+            String modifiedPrompt = promptTextArea.getText().trim();
+            
+            // 保存到配置中
+            IdeaSettings.getInstance().getState().setBuildFlowPrompt(modifiedPrompt);
+            
+            // 显示成功通知
+            Notifications.Bus.notify(new Notification(
+                    "com.yt.huq.idea",
+                    "提示词修改",
+                    "提示词修改已保存，下次生成时生效",
+                    NotificationType.INFORMATION),
+                    project);
+        });
+        promptButtonPanel.add(applyButton);
+        
+        contentPanel.add(promptButtonPanel, BorderLayout.SOUTH);
+        
+        // 切换逻辑
+        toggleButton.addActionListener(e -> {
+            boolean isVisible = contentPanel.isVisible();
+            contentPanel.setVisible(!isVisible);
+            toggleButton.setText(isVisible ? "▶" : "▼");
+            titleLabel.setText(isVisible ? "提示词调试 (点击按钮展开)" : "提示词调试 (点击按钮折叠)");
+            
+            // 触发重新布局
+            containerPanel.revalidate();
+            containerPanel.repaint();
+        });
+        
+        // 组装容器
+        containerPanel.add(titlePanel, BorderLayout.NORTH);
+        containerPanel.add(contentPanel, BorderLayout.CENTER);
+        
+        return containerPanel;
     }
 
 
@@ -548,9 +707,135 @@ public class FlowDiagramAction extends AnAction implements DumbAware {
         codeBuilder.append("// Method: ").append(methodName).append("\n");
         codeBuilder.append("// token: ").append(methodDesc.buildMethodId()).append("\n");
 
+        // 添加类签名、注解等信息
+        appendClassSignatureInfo(codeBuilder, methodDesc);
+
         // 添加方法代码
         codeBuilder.append(methodCode);
         codeBuilder.append("\n// ").append("=".repeat(80)).append("\n\n");
+    }
+
+    /**
+     * 添加类的签名信息（包括注解、类声明等）
+     */
+    private void appendClassSignatureInfo(StringBuilder codeBuilder, MethodDescription methodDesc) {
+        PsiMethod psiMethod = methodDesc.getPsiMethod();
+        if (psiMethod == null) {
+            return;
+        }
+
+        PsiClass containingClass = psiMethod.getContainingClass();
+        if (containingClass == null) {
+            return;
+        }
+
+        try {
+            // 获取类的完整声明文本（包括注解）
+            String classSignature = getClassSignatureText(containingClass);
+            if (classSignature != null && !classSignature.isEmpty()) {
+                codeBuilder.append("// Class Signature: \n");
+                // 将类签名按行添加，每行前面加上注释
+                String[] lines = classSignature.split("\n");
+                for (String line : lines) {
+                    if (!line.trim().isEmpty()) {
+                        codeBuilder.append("//   ").append(line).append("\n");
+                    }
+                }
+                codeBuilder.append("\n");
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to extract class signature info for: " + containingClass.getQualifiedName(), e);
+        }
+    }
+
+    /**
+     * 获取类的完整签名文本（包括注解）
+     */
+    private String getClassSignatureText(PsiClass psiClass) {
+        if (psiClass == null) {
+            return "";
+        }
+
+        try {
+            StringBuilder signature = new StringBuilder();
+            
+            // 获取类的注解
+            PsiAnnotation[] annotations = psiClass.getAnnotations();
+            for (PsiAnnotation annotation : annotations) {
+                signature.append(annotation.getText()).append("\n");
+            }
+            
+            // 获取修饰符列表
+            PsiModifierList modifierList = psiClass.getModifierList();
+            if (modifierList != null) {
+                String modifiers = modifierList.getText();
+                if (!modifiers.isEmpty()) {
+                    signature.append(modifiers).append(" ");
+                }
+            }
+            
+            // 添加类关键字
+            if (psiClass.isInterface()) {
+                signature.append("interface ");
+            } else if (psiClass.isEnum()) {
+                signature.append("enum ");
+            } else {
+                signature.append("class ");
+            }
+            
+            // 添加类名
+            signature.append(psiClass.getName());
+            
+            // 添加泛型参数
+            PsiTypeParameterList typeParameterList = psiClass.getTypeParameterList();
+            if (typeParameterList != null) {
+                String typeParams = typeParameterList.getText();
+                if (!typeParams.isEmpty()) {
+                    signature.append(typeParams);
+                }
+            }
+            
+            // 添加继承信息
+            PsiClass[] supers = psiClass.getSupers();
+            if (supers.length > 0) {
+                boolean first = true;
+                for (PsiClass superClass : supers) {
+                    // 跳过Object类
+                    if ("java.lang.Object".equals(superClass.getQualifiedName())) {
+                        continue;
+                    }
+                    
+                    if (first) {
+                        signature.append(" extends ");
+                        first = false;
+                    } else {
+                        signature.append(", ");
+                    }
+                    signature.append(superClass.getQualifiedName());
+                }
+            }
+            
+            // 添加实现的接口
+            PsiClass[] interfaces = psiClass.getInterfaces();
+            if (interfaces.length > 0) {
+                boolean first = true;
+                for (PsiClass iface : interfaces) {
+                    if (first) {
+                        signature.append(" implements ");
+                        first = false;
+                    } else {
+                        signature.append(", ");
+                    }
+                    signature.append(iface.getQualifiedName());
+                }
+            }
+            
+            return signature.toString().trim();
+        } catch (Exception e) {
+            LOG.warn("Failed to get class signature text for: " + 
+                     (psiClass != null ? psiClass.getQualifiedName() : "null"), e);
+            return "";
+        }
     }
 
     /**
