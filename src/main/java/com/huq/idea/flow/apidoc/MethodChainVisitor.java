@@ -267,16 +267,20 @@ public class MethodChainVisitor extends JavaRecursiveElementVisitor {
 
         if (MyPsiUtil.isAbstract(containingClass)) {
             psiMethod.accept(this);
-            Query<PsiElement> search = DefinitionsScopedSearch.search(psiMethod).allowParallelProcessing();
-            for (PsiElement psiElement : search) {
-                if (psiElement instanceof PsiMethod) {
-                    if (alreadyInStack((PsiMethod) psiElement)) {
-                        continue;
+            // Use DumbService to ensure we're in smart mode for DefinitionsScopedSearch
+            com.intellij.openapi.project.DumbService.getInstance(psiMethod.getProject()).runReadActionInSmartMode(() -> {
+                Query<PsiElement> search = DefinitionsScopedSearch.search(psiMethod).allowParallelProcessing();
+                for (PsiElement psiElement : search) {
+                    if (psiElement instanceof PsiMethod) {
+                        if (alreadyInStack((PsiMethod) psiElement)) {
+                            continue;
+                        }
+                        subMethodInterfaceMap.put((PsiMethod) psiElement, psiMethod);
+                        methodAccept(psiElement);
                     }
-                    subMethodInterfaceMap.put((PsiMethod) psiElement, psiMethod);
-                    methodAccept(psiElement);
                 }
-            }
+                return null; // Void return for runReadActionInSmartMode
+            });
         } else {
             methodAccept(psiMethod);
         }

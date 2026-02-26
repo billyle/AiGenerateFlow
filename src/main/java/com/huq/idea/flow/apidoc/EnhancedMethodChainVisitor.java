@@ -129,37 +129,41 @@ public class EnhancedMethodChainVisitor extends JavaRecursiveElementVisitor {
             method.accept(this);
             
             // Then find and visit all implementations
-            Query<PsiElement> search = DefinitionsScopedSearch.search(method).allowParallelProcessing();
-            for (PsiElement element : search) {
-                if (element instanceof PsiMethod) {
-                    PsiMethod implMethod = (PsiMethod) element;
-                    PsiClass implClass = implMethod.getContainingClass();
-                    
-                    if (implClass != null) {
-                        LOG.info("Found implementation in: " + implClass.getQualifiedName());
+            // Use DumbService to ensure we're in smart mode for DefinitionsScopedSearch
+            com.intellij.openapi.project.DumbService.getInstance(method.getProject()).runReadActionInSmartMode(() -> {
+                Query<PsiElement> search = DefinitionsScopedSearch.search(method).allowParallelProcessing();
+                for (PsiElement element : search) {
+                    if (element instanceof PsiMethod) {
+                        PsiMethod implMethod = (PsiMethod) element;
+                        PsiClass implClass = implMethod.getContainingClass();
                         
-                        // Remember the relationship between interface and implementation
-                        interfaceToImplementationMap.put(implMethod, method);
-                        
-                        // Create a call stack for the implementation
-                        MethodDescription implDescription = createMethodDescription(implMethod);
-                        implDescription.put("implementation", "true");
-                        implDescription.put("implements", methodId);
-                        
-                        // Save current position in the call stack
-                        CallStack parentStack = currentStack;
-                        
-                        // Add implementation to the call stack
-                        currentStack = currentStack.methodCall(implDescription);
-                        
-                        // Visit the implementation method
-                        implMethod.accept(this);
-                        
-                        // Restore position in the call stack
-                        currentStack = parentStack;
+                        if (implClass != null) {
+                            LOG.info("Found implementation in: " + implClass.getQualifiedName());
+                            
+                            // Remember the relationship between interface and implementation
+                            interfaceToImplementationMap.put(implMethod, method);
+                            
+                            // Create a call stack for the implementation
+                            MethodDescription implDescription = createMethodDescription(implMethod);
+                            implDescription.put("implementation", "true");
+                            implDescription.put("implements", methodId);
+                            
+                            // Save current position in the call stack
+                            CallStack parentStack = currentStack;
+                            
+                            // Add implementation to the call stack
+                            currentStack = currentStack.methodCall(implDescription);
+                            
+                            // Visit the implementation method
+                            implMethod.accept(this);
+                            
+                            // Restore position in the call stack
+                            currentStack = parentStack;
+                        }
                     }
                 }
-            }
+                return null; // Void return for runReadActionInSmartMode
+            });
         } else {
             // Regular class, just visit the method
             method.accept(this);

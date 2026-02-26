@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.huq.idea"
-version = "1.3.0"
+version = "1.3.0-fixutf8"
 
 
 repositories {
@@ -41,15 +41,17 @@ tasks {
   withType<JavaCompile> {
     sourceCompatibility = "17"
     targetCompatibility = "17"
+    options.encoding = "UTF-8"
   }
   withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    // Kotlin 2.2.0 不需要额外的编码参数
   }
   patchPluginXml {
     // 设置插件兼容的IDE最小构建版本
-    sinceBuild.set("232")
+    sinceBuild.set("253")
     // 明确设置 untilBuild 为空，不限制最大支持版本
-    untilBuild.set("253.*")
+    untilBuild.set(provider { null })
   }
 
   signPlugin {
@@ -67,6 +69,11 @@ tasks {
         into("distributions")
       }
     }
+  }
+
+  // 跳过可能导致问题的buildSearchableOptions任务
+  named<org.jetbrains.intellij.tasks.BuildSearchableOptionsTask>("buildSearchableOptions") {
+    enabled = false
   }
 
   publishPlugin {

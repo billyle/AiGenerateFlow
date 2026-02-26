@@ -264,16 +264,20 @@ public class PlanUMLUtil {
 
 
             // follow implementation
-            Query<PsiElement> search = DefinitionsScopedSearch.search(psiMethod).allowParallelProcessing();
+            // Use DumbService to ensure we're in smart mode for DefinitionsScopedSearch
+            com.intellij.openapi.project.DumbService.getInstance(psiMethod.getProject()).runReadActionInSmartMode(() -> {
+                Query<PsiElement> search = DefinitionsScopedSearch.search(psiMethod).allowParallelProcessing();
 
-            for (PsiElement psiElement : search) {
-                if (psiElement instanceof PsiMethod) {
-                    if (alreadyInStack((PsiMethod) psiElement)) continue;
+                for (PsiElement psiElement : search) {
+                    if (psiElement instanceof PsiMethod) {
+                        if (alreadyInStack((PsiMethod) psiElement)) continue;
 
-                    if (/*!params.isSmartInterface() && */params.getImplementationWhiteList().allow(psiElement))
-                        methodAccept(psiElement);
+                        if (/*!params.isSmartInterface() && */params.getImplementationWhiteList().allow(psiElement))
+                            methodAccept(psiElement);
+                    }
                 }
-            }
+                return null; // Void return for runReadActionInSmartMode
+            });
         } else {
             // resolve variable initializer
             if (/*params.isSmartInterface() && */!MyPsiUtil.isExternal(containingClass) && !imfCache.contains(containingClass.getQualifiedName())) {
